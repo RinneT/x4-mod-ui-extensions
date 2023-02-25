@@ -20,6 +20,8 @@ local function init ()
 		isInited = true
 		mapMenu.registerCallback = newFuncs.registerCallback
 		-- map menu rewrites:
+		oldFuncs.createOrdersMenuHeader = mapMenu.createOrdersMenuHeader
+		mapMenu.createOrdersMenuHeader = newFuncs.createOrdersMenuHeader
 		oldFuncs.buttonToggleObjectList = mapMenu.buttonToggleObjectList
 		mapMenu.buttonToggleObjectList = newFuncs.buttonToggleObjectList
 		oldFuncs.createInfoFrame = mapMenu.createInfoFrame
@@ -748,6 +750,73 @@ local config = {
 		maxPlotRows = 10,
 	},
 }
+
+function newFuncs.createOrdersMenuHeader(frame, instance)
+	-- sync with tab table in menu.createOrderQueue()
+	local orderHeaderTable
+	if instance == "left" then
+		menu.orderHeaderTable = frame:addTable(#config.infoCategories + 1, { tabOrder = 1 })
+		orderHeaderTable = menu.orderHeaderTable
+	elseif instance == "right" then
+		menu.orderHeaderTableRight = frame:addTable(#config.infoCategories + 1, { tabOrder = 1 })
+		orderHeaderTable = menu.orderHeaderTableRight
+	end
+
+	for i, entry in ipairs(config.infoCategories) do
+		if entry.empty then
+			orderHeaderTable:setColWidth(i, menu.sideBarWidth / 2, false)
+		else
+			orderHeaderTable:setColWidth(i, menu.sideBarWidth, false)
+		end
+	end
+
+	local row = orderHeaderTable:addRow("orders_tabs", { fixed = true, bgColor = Helper.color.transparent })
+	local count = 1
+	for _, entry in ipairs(config.infoCategories) do
+		if not entry.empty then
+			local bgcolor = Helper.defaultTitleBackgroundColor
+			local color = Helper.color.white
+			if entry.category == menu.infoMode[instance] then
+				bgcolor = Helper.defaultArrowRowBackgroundColor
+			end
+
+			local shown = true
+			if entry.category == "orderqueue_advanced" then
+				if C.IsMasterVersion() and (C.GetConfigSetting("advancedorderqueue") <= 0) then
+					shown = false
+				end
+			end
+
+			if shown then
+				local loccount = count
+				row[loccount]:createButton({ active = menu.isInfoModeValidFor(menu.infoSubmenuObject, entry.category), height = menu.sideBarWidth, bgColor = bgcolor, mouseOverText = entry.name, scaling = false, helpOverlayID = entry.helpOverlayID, helpOverlayText = entry.helpOverlayText }):setIcon(entry.icon, { color = color})
+				row[loccount].handlers.onClick = function () return menu.buttonInfoSubMode(entry.category, loccount, instance) end
+				count = count + 1
+			end
+		else
+			count = count + 1
+		end
+	end
+
+	-- Forleyor / soh start: callback
+	if callbacks ["createOrdersMenuHeader_on_addorderHeaderRow"] then
+		for _, callback in ipairs (callbacks ["createOrdersMenuHeader_on_addorderHeaderRow"]) do
+			callback (row, count, instance)
+		end
+	end
+	-- Forleyor / soh end: callback
+
+	if menu.selectedRows["orderHeaderTable" .. instance] then
+		orderHeaderTable.properties.defaultInteractiveObject = true
+		orderHeaderTable:setSelectedRow(menu.selectedRows["orderHeaderTable" .. instance])
+		orderHeaderTable:setSelectedCol(menu.selectedCols["orderHeaderTable" .. instance] or 0)
+		menu.selectedRows["orderHeaderTable" .. instance] = nil
+		menu.selectedCols["orderHeaderTable" .. instance] = nil
+	end
+
+	return orderHeaderTable
+end
+
 function newFuncs.buttonToggleObjectList(objectlistparam, confirmed)
 	-- kuertee start: callback
 	if callbacks ["buttonToggleObjectList_on_start"] then
@@ -1058,6 +1127,19 @@ function newFuncs.createInfoFrame()
 			elseif menu.infoMode.left == "standingorders" then
 				menu.createStandingOrdersMenu(menu.infoFrame, "left")
 			end
+			-- soh start: callback
+			local isCreated = false
+			if callbacks ["createInfoFrame_on_menu_infoTable_info"] then
+				for _, callback in ipairs (callbacks ["createInfoFrame_on_menu_infoTable_info"]) do
+					if callback (menu.infoFrame, "left") then
+						isCreated = true
+					end
+				end
+			end
+			if isCreated ~= true then
+				menu.infoFrame:addTable(0)
+			end
+			-- soh end: callback
 		elseif menu.infoTableMode == "missionoffer" then
 			menu.createMissionMode(menu.infoFrame)
 		elseif menu.infoTableMode == "mission" then
