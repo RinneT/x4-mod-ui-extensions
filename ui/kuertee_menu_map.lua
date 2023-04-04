@@ -5460,6 +5460,12 @@ function newFuncs.isInfoModeValidFor(object, mode)
 		if isplayerowned and C.IsComponentClass(object, "ship") and (not C.IsUnit(object)) then
 			return true
 		end
+	-- SoH
+	elseif mode == "soh_history" then
+	if (C.IsComponentClass(object, "ship") or C.IsComponentClass(object, "station")) then
+		return true
+	end
+	-- SoH end
 	else
 		local text = ""
 		for i, entry in ipairs(config.infoCategories) do
